@@ -1,0 +1,435 @@
+import pygame
+from sys import exit
+
+# VARIABEL UTAMA GAME 
+
+TILE_SIZE = 32
+GAME_WIDTH = 512
+GAME_HEIGHT = 512
+
+PLAYER_X = GAME_WIDTH / 2
+PLAYER_Y = GAME_HEIGHT / 2
+
+PLAYER_DISTANCE = 5
+
+# VARIABEL FISIKA
+
+GRAVITY = 0.5
+FRICTION = 0.4
+PLAYER_VELOCITY_X = 5
+PLAYER_VELOCITY_Y = -11
+
+# VARIABEL SENJATA
+
+PLAYER_BOLA_API_WIDTH = 16
+PLAYER_BOLA_API_HEIGHT = 12
+PLAYER_BOLA_API_KECEPATAN_X = 8
+BOLA_API_PANTULAN = -10
+# VARIABEL KESEHATAN
+
+HEALTH_WIDTH = 16
+HEALTH_HEIGHT = 4
+
+# VARIABEL MUSUH
+
+GOOMBA_WIDTH = 36
+GOOMBA_HEIGHT = 30
+GOOMBA_SPEED = 2  # <--- Tambahkan baris ini
+
+
+# INISIALISASI PYGAME & DISPLAY
+
+pygame.init()
+window = pygame.display.set_mode((GAME_WIDTH, GAME_HEIGHT))
+pygame.display.set_caption("Mario Bros")
+clock = pygame.time.Clock()
+
+
+background_image = pygame.image.load("latar.png")
+gambar_mario_right = pygame.image.load("Rancangan_2.png")
+gambar_mario_right = pygame.transform.scale(gambar_mario_right, (50, 75))
+gambar_mario_left = pygame.transform.flip(gambar_mario_right, True, False)
+
+gambar_mario_lompat_right = pygame.image.load("mario-lompat.png")
+gambar_mario_lompat_right = pygame.transform.scale(gambar_mario_lompat_right, (50, 75))
+gambar_mario_lompat_left = pygame.transform.flip(gambar_mario_lompat_right, True, False)
+
+brick = pygame.image.load("brick.png")
+brick = pygame.transform.scale(brick, (40, 40))
+
+bola_api_img = pygame.image.load("bola_api.png")
+bola_api_img = pygame.transform.scale(bola_api_img, (10, 12))
+
+goomba_img_right = pygame.image.load("goomba.png")
+goomba_img_right = pygame.transform.scale(goomba_img_right, (40, 40))
+
+goomba_img_left = pygame.transform.flip(goomba_img_right, True, False)
+
+pygame.display.set_icon(gambar_mario_right)
+
+INVINCIBLE_END = pygame.USEREVENT + 0
+SHOOTING_END = pygame.USEREVENT + 1
+
+
+#  KELAS 
+
+class Player(pygame.Rect):
+    class Bola_api(pygame.Rect):
+        def __init__(self):
+            # === KODE BARU: MENGATUR TINGGI SETINGGI TANGAN MARIO ===
+            # Mengatur ketinggian agar pas di posisi tangan (diturunkan sejauh 40% dari tinggi Mario)
+            posisi_tangan_y = player.y + int(player.height * 0.50)
+            
+            if player.direction == "left":
+                # x muncul di sebelah kiri badan Mario setinggi tangan
+                pygame.Rect.__init__(self, player.x - PLAYER_BOLA_API_WIDTH, posisi_tangan_y,
+                                     PLAYER_BOLA_API_WIDTH, PLAYER_BOLA_API_HEIGHT)
+                self.velocity_x = -PLAYER_BOLA_API_KECEPATAN_X
+            elif player.direction == "right":
+                # x muncul di ujung kanan badan Mario setinggi tangan
+                pygame.Rect.__init__(self, player.x + player.width, posisi_tangan_y,
+                                     PLAYER_BOLA_API_WIDTH, PLAYER_BOLA_API_HEIGHT)
+                self.velocity_x = PLAYER_BOLA_API_KECEPATAN_X
+            
+            # Variabel Gambar & Mekanik Asli Game (Tetap dipertahankan)
+            self.original_image = bola_api_img
+            self.image = bola_api_img
+            self.used = False
+            self.velocity_y = 0  
+            self.angle = 0       
+
+
+    def __init__(self):
+        pygame.Rect.__init__(self, PLAYER_X, PLAYER_Y, 50, 75)
+        self.image = gambar_mario_right
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.direction = "right"
+        self.jumping = False
+        self.invincible = False
+        self.max_health = 5
+        self.health = self.max_health
+        self.shooting = False
+        self.bola_api = []
+    
+    def update_image(self):
+        if self.jumping:
+            if self.direction == "right":
+                self.image = gambar_mario_lompat_right
+            elif self.direction == "left":
+                self.image = gambar_mario_lompat_left
+        else:
+            if self.direction == "right":
+                self.image = gambar_mario_right
+            elif self.direction == "left":
+                self.image = gambar_mario_left
+    
+    def set_invincible(self, milliseconds=1000):
+        self.invincible = True
+        pygame.time.set_timer(INVINCIBLE_END, milliseconds, 1)
+    
+    def set_shooting(self):
+        if not self.shooting:
+            self.shooting = True
+            self.bola_api.append(Player.Bola_api())
+            pygame.time.set_timer(SHOOTING_END, 500, 50)
+
+class Goomba(pygame.Rect):
+    def __init__(self, x, y):
+        pygame.Rect.__init__(self, x, y, GOOMBA_WIDTH, GOOMBA_HEIGHT)
+        self.image = goomba_img_left
+        self.velocity_x = -GOOMBA_SPEED  # <--- TAMBAHKAN BARIS INI (Biar Goomba punya kecepatan X)
+        self.velocity_y = 0
+        self.direction = "left"
+        self.health = 1
+
+    def update_image(self):
+        if self.direction == "right":
+            self.image = goomba_img_right
+        elif self.direction == "left":
+            self.image = goomba_img_left
+
+
+class Brick(pygame.Rect):
+    def __init__(self, x, y, image):
+        pygame.Rect.__init__(self, x, y, TILE_SIZE, TILE_SIZE)
+        self.image = image
+
+
+def create_map():
+    for i in range(4):
+        tile = Brick(player.x + i * TILE_SIZE, player.y + TILE_SIZE * 1, brick)
+        bricks.append(tile)
+
+    for i in range(16):
+        tile = Brick(i * TILE_SIZE, player.y + TILE_SIZE * 5, brick)
+        bricks.append(tile)
+    
+    for i in range(3):
+        goomba_enemy = Goomba(player.x + TILE_SIZE * (3 + i * 2), TILE_SIZE * 5)
+        goombas.append(goomba_enemy)
+
+def check_tile_collision(character):
+    for b in bricks:
+        if character.colliderect(b):
+            return b
+    return None
+
+def check_tile_collision_x(character):
+    tile = check_tile_collision(character)
+    if tile is not None:
+        if character.velocity_x < 0:  # Bergerak ke kiri
+            character.x = tile.x + tile.width
+            # Jika Goomba menabrak ubin samping kiri, berbalik arah ke kanan
+            if isinstance(character, Goomba):
+                # Membalikkan arah kecepatan secara dinamis (menggunakan abs agar nilainya selalu positif)
+                character.velocity_x = abs(character.velocity_x)
+                character.direction = "right"
+        elif character.velocity_x > 0:  # Bergerak ke kanan
+            character.x = tile.x - character.width
+            # Jika Goomba menabrak ubin samping kanan, berbalik arah ke kiri
+            if isinstance(character, Goomba):
+                # Membalikkan arah kecepatan menjadi negatif
+                character.velocity_x = -abs(character.velocity_x)
+                character.direction = "left"
+        
+        # Player dan Bola api tetap mengeset speed ke 0 setelah tabrakan samping
+        if not isinstance(character, Goomba):
+            character.velocity_x = 0
+        return True
+    return False
+
+
+def check_tile_collision_y(character):
+    tile = check_tile_collision(character)
+    if tile is not None:
+        if character.velocity_y < 0:  # Bergerak ke atas
+            character.y = tile.y + tile.height
+            character.velocity_y = 0
+        elif character.velocity_y > 0:  # Bergerak ke bawah
+            character.y = tile.y - character.height
+            character.jumping = False
+            
+            # === KODE DETEKSI PANTULAN BOLA API YANG PASTI BERHASIL ===
+            # Kita langsung cek apakah objek tersebut memiliki variabel 'angle' (variabel unik cuma punya Bola_api)
+            if hasattr(character, 'angle'):
+                character.velocity_y = BOLA_API_PANTULAN  # Peluru otomatis memantul ke atas
+            else:
+                character.velocity_y = 0                  # Jika Mario atau Goomba, kecepatannya jadi 0
+
+
+
+def move():
+    global goombas
+    
+    # Pergerakan_X Player & Gesekan
+    if player.direction == "left" and player.velocity_x < 0:
+        player.velocity_x += FRICTION
+    elif player.direction == "right" and player.velocity_x > 0:
+        player.velocity_x -= FRICTION
+    else:
+        player.velocity_x = 0
+
+    player.x += player.velocity_x
+    
+    # Pembatas Layar X Player
+    if player.x < 0:
+        player.x = 0
+    elif player.x + player.width > GAME_WIDTH:
+        player.x = GAME_WIDTH - player.width
+
+    check_tile_collision_x(player)
+
+    # Pergerakan Y Player & Gravitasi
+    player.velocity_y += GRAVITY
+    player.y += player.velocity_y
+    check_tile_collision_y(player)
+
+    # === PERBAIKAN LOGIKA BOLA API DI DALAM DEF MOVE() ===
+    for b_api in player.bola_api:
+        # 1. Gerak Horizontal & Cek Tabrakan Dinding Samping
+        b_api.x += b_api.velocity_x
+        if check_tile_collision_x(b_api):
+            b_api.used = True
+            continue
+
+        # 2. Gerak Vertikal & Efek Gravitasi (WAJIB ADA BIAR BISA JATUH)
+        b_api.velocity_y += GRAVITY
+        b_api.y += b_api.velocity_y
+        
+        # 3. Panggil Fungsi Cek Tabrakan Tanah (INI YANG BIKIN MANTUL)
+        check_tile_collision_y(b_api)
+
+        # 4. Efek Visual Berputar
+        b_api.angle = (b_api.angle - 20) % 360
+        b_api.image = pygame.transform.rotate(b_api.original_image, b_api.angle)
+
+        # 5. Deteksi Tabrakan dengan Musuh Goomba
+        for g in goombas:
+            if g.health > 0 and not b_api.used and b_api.colliderect(g):
+                g.health -= 1
+                b_api.used = True
+
+    
+    player.bola_api = [b_api for b_api in player.bola_api if not b_api.used \
+                       and b_api.x + b_api.width > 0 and b_api.x < GAME_WIDTH]
+    
+    goombas = [g for g in goombas if g.health > 0]
+
+    # === KODE GOOMBA PATROLI BOLAK-BALIK ===
+    # 1. Bersihkan Goomba yang sudah mati
+    goombas = [g for g in goombas if g.health > 0]
+    # === FITUR EVOLUSI GOOMBA (FASE BOSS) ===
+    jumlah_goomba_hidup = len(goombas)
+
+    for g in goombas:
+        # EVOLUSI JIKA MUSUH SISA 2 (FASE 2 - MEDIUM)
+        # Kita pakai variabel g.health (bukan musuh[2]) dan g.fase (bukan musuh[3])
+        if jumlah_goomba_hidup == 2 and not hasattr(g, 'fase_2_aktif'):
+            g.health = 3           # HP naik jadi 3
+            # Naikkan kecepatan jalan (pertahankan arah plus/minus)
+            g.velocity_x = 3 if g.velocity_x > 0 else -3 
+            g.fase_2_aktif = True  # Penanda agar evolusi ini cuma jalan sekali
+            
+            # Ubah ukuran kotak fisik musuh menjadi medium (55x55)
+            # Menyesuaikan posisi koordinat Y agar tidak tenggelam di tanah
+            simpan_x = g.x
+            g.size = (55, 55)
+            g.width, g.height = 55, 55
+            g.x = simpan_x
+            g.y = player.y + TILE_SIZE * 5 - 55  # Menyesuaikan ketinggian tanah brick
+
+        # EVOLUSI JIKA MUSUH SISA 1 (FASE 1 - RAKSASA)
+        elif jumlah_goomba_hidup == 1 and not hasattr(g, 'fase_1_aktif'):
+            g.health = 5           # HP naik jadi 5
+            g.velocity_x = 4 if g.velocity_x > 0 else -4 # Jalan makin cepat
+            g.fase_1_aktif = True  # Penanda agar evolusi ini cuma jalan sekali
+            
+            # Ubah ukuran kotak fisik musuh menjadi raksasa (75x75)
+            simpan_x = g.x
+            g.size = (75, 75)
+            g.width, g.height = 75, 75
+            g.x = simpan_x
+            g.y = player.y + TILE_SIZE * 5 - 75  # Menyesuaikan ketinggian tanah brick
+
+    # 2. Gerakan dan logika semua Goomba
+    for g in goombas:
+        # Jalan otomatis secara horizontal
+        g.x += g.velocity_x
+        check_tile_collision_x(g)
+        
+        # Balik arah jika mentok ujung layar kiri
+        if g.x < 0:
+            g.x = 0
+            g.velocity_x = GOOMBA_SPEED
+            g.direction = "right"
+        # Balik arah jika mentok ujung layar kanan
+        elif g.x + g.width > GAME_WIDTH:
+            g.x = GAME_WIDTH - g.width
+            g.velocity_x = -GOOMBA_SPEED
+            g.direction = "left"
+
+        # Efek gravitasi agar Goomba jatuh ke tanah ubin
+        g.velocity_y += GRAVITY
+        g.y += g.velocity_y
+        check_tile_collision_y(g)
+
+        # Logika jika Goomba menabrak dan melukai Mario
+        # 4. Deteksi Mario menginjak Goomba dari atas
+        if player.colliderect(g):
+            # Jika posisi kaki Mario berada di atas kepala Goomba dan sedang jatuh ke bawah
+            if player.velocity_y > 0 and player.bottom <= g.top + 15:
+                g.health -= 1                      # Goomba mati
+                player.velocity_y = -8             # Mario otomatis memantul sedikit ke atas
+                player.jumping = True              # Mengaktifkan status melompat Mario
+            
+            # Jika menabrak dari samping (bukan diinjak) dan Mario tidak kebal
+            elif not player.invincible:
+                player.health -= 1
+                player.set_invincible()
+
+
+
+
+
+def draw():
+    window.blit(background_image, (0, -90))
+
+    for b in bricks:
+        window.blit(b.image, b)
+
+    player.update_image()
+    window.blit(player.image, player)
+
+    for b_api in player.bola_api:
+        rot_rect = b_api.image.get_rect(center=b_api.center)
+        window.blit(b_api.image, rot_rect)
+
+    # === TARUH DI SINI (GANTI PERULANGAN GOOMBA YANG LAMA) ===
+    for g in goombas:
+        g.update_image()  # Memperbarui arah mata Goomba
+        
+        # BARIS INI YANG MEMAKSA GAMBAR MENGIKUTI UKURAN KOTAK FISIKNYA (g.width, g.height)
+        gambar_skala = pygame.transform.scale(g.image, (g.width, g.height))
+        
+        window.blit(gambar_skala, g)
+
+
+player = Player()
+goombas = []
+bricks = []
+create_map()
+
+
+# SIKLUS GAME UTAMA
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+        
+        if event.type == INVINCIBLE_END:
+            player.invincible = False
+        elif event.type == SHOOTING_END:
+            player.shooting = False
+
+    # Tombol Gerak Lompat,Belok Kiri,Belok Kanan, Nembak
+
+    keys = pygame.key.get_pressed()
+    
+    # Melompat
+    if (keys[pygame.K_UP] or keys[pygame.K_w]) and not player.jumping:
+        player.velocity_y = PLAYER_VELOCITY_Y
+        player.jumping = True
+
+    # Gerak Kiri
+    if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+        player.velocity_x = -PLAYER_VELOCITY_X
+        player.direction = "left"
+
+    # Gerak Kanan
+    if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+        player.velocity_x = PLAYER_VELOCITY_X
+        player.direction = "right"
+    
+    # Nembak Bola Api
+    if keys[pygame.K_RSHIFT] or keys[pygame.K_q]:
+        player.set_shooting()
+
+    
+    # Update logika posisi pergerakan karakter & musuh
+    move()
+    
+    # Gambar ulang seluruh image
+    draw()
+    
+    # Gambar background bar darah 
+    pygame.draw.rect(window, (255, 0, 0), (50, 20, 400, 15)) 
+    if player.health > 0:
+        pygame.draw.rect(window, (0, 255, 0), (50, 20, 80 * player.health, 15)) 
+
+    # Perbarui tampilan layar monitor
+    pygame.display.update()
+    
+    clock.tick(60) 
+
