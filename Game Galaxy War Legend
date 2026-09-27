@@ -1,0 +1,348 @@
+# ==========================
+# === GALAXY WAR LEGENDS ===
+# ==========================
+
+# 1. import
+import pygame as pygame
+import random as random
+
+# 3. layar (DIPINDAHKAN KE ATAS AGAR FONT TIDAK ERROR)
+pygame.init()
+
+panjang = 400
+lebar = 600
+Screen = pygame.display.set_mode([panjang,lebar])
+
+# 2. Gambar
+Spaceship = pygame.image.load("Mega-Ship.png")
+lebar_Spaceship = Spaceship.get_width()
+panjang_Spaceship = Spaceship.get_height()
+
+Alien = pygame.image.load("Alien-Spaceship.png")
+Alien_flip = pygame.transform.flip(Alien,True,True)
+lebar_Alien_flip = Alien_flip.get_width()
+panjang_Alien_flip = Alien_flip.get_height()
+
+Meteorit = pygame.image.load("meteor.png")
+lebar_Meteorit = Meteorit.get_width()
+panjang_Meteorit = Meteorit.get_height()
+
+Icon = pygame.image.load("Mega-Ship.png")
+Background = pygame.image.load("Background.png")
+Plasma = pygame.image.load("Plasma.png")
+lebar_Plasma = Plasma.get_width()
+panjang_Plasma = Plasma.get_height()
+Background = pygame.image.load("Background.png")
+
+Plasma_musuh = pygame.transform.flip(Plasma,False,True)
+lebar_Plasma_musuh = Plasma_musuh.get_width()
+panjang_Plasma_musuh = Plasma_musuh.get_height()
+
+pygame.display.set_caption("Galaxy War Legends")
+pygame.display.set_icon(Icon)
+
+# 4. variabel
+clock = pygame.time.Clock()
+font = pygame.font.Font(None,30)
+font.set_bold(True)
+font.set_italic(True)
+
+hp = 10
+x_spaceship = 170
+y_spaceship = 500
+
+# Variabel Boss Alien
+x_alien = random.randint(0,300)
+y_alien = -200  
+velocity_y_alien = 3
+velocity_x_alien = 2
+boss_aktif = False
+hp_boss = 5
+
+x_plasma_alien = x_alien + 50
+y_plasma_alien = y_alien + 65
+
+x_plasma_alien_2 = x_alien + 30
+y_plasma_alien_2 = y_alien + 65
+
+# Variabel Meteor
+x_enemy = random.randint(0,300)
+y_enemy = random.randint(0,0)
+velocity_y_enemy = 5  
+
+# Variabel Tembakan Musuh
+cd_musuh = 0
+durasi_cooldown_musuh = 500
+daftar_peluru_musuh = []
+kecepatan_peluru_musuh = 5
+
+# Variabel Tembakan
+cd = 0
+durasi_cooldown = 100  
+daftar_peluru = []
+kecepatan_peluru = 7
+
+# Variabel Item Drop & Buff
+daftar_item = []
+item_speed = 3
+buff_durasi = 0
+
+score = 0
+warna_putih = (255, 255, 255)
+
+# 5. Fungsi
+def Collision(x1, y1, w1, h1, x2, y2, w2, h2):
+    center_x1 = x1 + (w1 / 2)
+    center_y1 = y1 + (h1 / 2)
+    center_x2 = x2 + (w2 / 2)
+    center_y2 = y2 + (h2 / 2)
+    
+    radius1 = w1 / 2
+    radius2 = w2 / 2
+    radius_gabungan = radius1 + radius2
+    
+    jarak_kuadrat = (center_x1 - center_x2)**2 + (center_y1 - center_y2)**2
+    return jarak_kuadrat <= (radius_gabungan ** 2)
+
+# 6. Program utama
+running = True
+while running:
+    cooldown = pygame.time.get_ticks()
+    cooldown_musuh = pygame.time.get_ticks()
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    
+    kunci = pygame.key.get_pressed()
+    if kunci[pygame.K_UP] or kunci[pygame.K_w]:
+        y_spaceship -= 10
+    if kunci[pygame.K_DOWN] or kunci[pygame.K_s]:
+        y_spaceship += 10
+    if kunci[pygame.K_LEFT] or kunci[pygame.K_a]:
+        x_spaceship -= 10
+    if kunci[pygame.K_RIGHT] or kunci[pygame.K_d]:
+        x_spaceship += 10
+    
+    # --- LOGIKA MENEMBAK DENGAN BUFF ---
+    if kunci[pygame.K_SPACE]:
+        if cooldown < buff_durasi:
+            jeda_sekarang = 40
+        else:
+            jeda_sekarang = durasi_cooldown  
+            
+        if cooldown - cd > jeda_sekarang:
+            posisi_plasma_1_x = x_spaceship + (lebar_Spaceship * 0.2) - (lebar_Plasma / 2)
+            posisi_plasma_2_x = x_spaceship + (lebar_Spaceship * 0.8) - (lebar_Plasma / 2)
+            
+            daftar_peluru.append([posisi_plasma_1_x, y_spaceship])
+            daftar_peluru.append([posisi_plasma_2_x, y_spaceship])
+            
+            cd = cooldown
+
+    jeda_sekarang_musuh = 50
+    if cooldown_musuh - cd_musuh > jeda_sekarang_musuh:
+            posisi_plasma_1_x_musuh = x_enemy + (lebar_Alien_flip * 0.2) - (lebar_Plasma / 2)
+            posisi_plasma_2_x_musuh = x_enemy + (lebar_Alien_flip * 0.8) - (lebar_Plasma / 2)
+
+            daftar_peluru_musuh.append([posisi_plasma_1_x_musuh, y_enemy])
+            daftar_peluru_musuh.append([posisi_plasma_2_x_musuh, y_enemy])
+            
+            cd_musuh = cooldown_musuh 
+              
+    if x_spaceship < 0:
+        x_spaceship = 0
+    
+    elif x_spaceship >= 335:
+        x_spaceship = 335
+    
+    if y_spaceship <  0:
+        y_spaceship = 0
+    
+    elif y_spaceship >= 535:
+        y_spaceship = 535
+        
+    y_enemy += velocity_y_enemy
+
+    # --- LOGIKA KEMUNCULAN RANDOM BOSS ---
+    if not boss_aktif:
+        if random.randint(1, 200) == 1:
+            boss_aktif = True
+            hp_boss = 3
+            x_alien = random.randint(0, 350)
+            y_alien = -50
+
+    if boss_aktif:
+        y_alien += velocity_y_alien
+        x_alien += velocity_x_alien
+        
+        if x_alien <= 0 or x_alien >= (400 - lebar_Alien_flip):
+            velocity_x_alien *= -1
+            
+        if y_alien >= 600:
+            boss_aktif = False
+            y_alien = -200
+
+    # Tabrakan antara Meteor dan Spaceship
+    Tabrakan_Antara_meteor_dan_Kapal = Collision(x_spaceship,
+                                                 y_spaceship,
+                                                 lebar_Spaceship,
+                                                 panjang_Spaceship,
+                                                 x_enemy,
+                                                 y_enemy,
+                                                 lebar_Meteorit,
+                                                panjang_Meteorit)
+    if Tabrakan_Antara_meteor_dan_Kapal:
+        hp -= 1
+        x_enemy = random.randint(0,300)
+        y_enemy = random.randint(0,0)
+        
+    # Tabrakan antara Alien (Boss) dan Spaceship
+    Tabrakan_Antara_Alien_dan_Kapal = Collision(x_spaceship,
+                                                y_spaceship,
+                                                lebar_Spaceship,
+                                                panjang_Spaceship,
+                                                x_alien,
+                                                y_alien,
+                                                lebar_Alien_flip,
+                                                panjang_Alien_flip)
+    if Tabrakan_Antara_Alien_dan_Kapal and boss_aktif:
+        hp -= 3
+        boss_aktif = False  
+        y_alien = -200
+
+    if y_enemy >= 600:
+        x_enemy = random.randint(0,300)
+        y_enemy = random.randint(0,0)
+    
+    if hp <= 0:
+        break
+
+    # === URUTAN MENGGAMBAR KE LAYAR ===
+    Screen.fill("black")
+    Screen.blit(Background, (-150, 30))  
+    
+    # --- LOGIKA PERGERAKAN & TABRAKAN PELURU ---
+    for peluru in daftar_peluru[:]:
+        peluru[1] -= kecepatan_peluru  
+        
+        if peluru[1] < 0:
+            daftar_peluru.remove(peluru)
+        else:
+            Screen.blit(Plasma, (peluru[0], peluru[1]))
+            
+            # Cek tabrakan peluru dengan meteor
+            Tabrakan_Meteor_dan_Peluru = Collision(peluru[0], peluru[1], lebar_Plasma, Plasma.get_height(),
+                                        x_enemy, y_enemy, lebar_Meteorit, panjang_Meteorit)
+            if Tabrakan_Meteor_dan_Peluru:
+                score += 1  
+                x_enemy = random.randint(0, 300)
+                y_enemy = random.randint(0, 0)
+                if peluru in daftar_peluru:
+                    daftar_peluru.remove(peluru)
+
+            # Cek tabrakan peluru dengan ALIEN (Boss)
+            if boss_aktif:
+                Tabrakan_alien = Collision(peluru[0], peluru[1], lebar_Plasma, panjang_Plasma,
+                                            x_alien, y_alien, lebar_Alien_flip, panjang_Alien_flip)
+                if Tabrakan_alien:
+                    hp_boss -= 1  
+                    if peluru in daftar_peluru:
+                        daftar_peluru.remove(peluru)
+
+                    if hp_boss <= 0:
+                        score += 3
+                        y_alien_terakhir = y_alien
+                        boss_aktif = False  
+                        y_alien = -200  
+                        
+
+    # --- LOGIKA PERGERAKAN & PENGAMBILAN ITEM ---
+    for item in daftar_item[:]:
+        
+        item[1] += item_speed  
+        
+        if item[1] > 600:
+            daftar_item.remove(item)
+            continue
+            
+        if item[2] == 1:    
+            pygame.draw.rect(Screen, (0, 255, 0), (item[0], item[1], 15, 15))
+        elif item[2] == 2:  
+            pygame.draw.rect(Screen, (255, 255, 0), (item[0], item[1], 15, 15))
+        elif item[2] == 3:  
+            pygame.draw.rect(Screen, (2, 2, 249), (item[0], item[1], 15, 15))
+            
+        ambil_item = Collision(x_spaceship, y_spaceship, lebar_Spaceship, panjang_Spaceship,
+                               item[0], item[1], 15, 15)
+                                
+        if ambil_item:
+            if item[2] == 1:   
+                hp += 2
+                if hp > 100: 
+                    hp = 10
+            elif item[2] == 2: 
+                score += 5
+            elif item[2] == 3: 
+                buff_durasi = pygame.time.get_ticks() + 5000
+              
+            daftar_item.remove(item) 
+
+    # 3. Tampilkan Teks UI dan Objek Utama
+    if boss_aktif:
+        Screen.blit(Alien_flip, (x_alien, y_alien))
+        # Gambar HP Bar di atas kepala Boss
+        bar_lebar_total = lebar_Alien_flip  
+        bar_tinggi = 6               
+        bar_lebar_sekarang = int(bar_lebar_total * (hp_boss / 5))
+        bar_x = x_alien
+        bar_y = y_alien - 15
+        
+        pygame.draw.rect(Screen, (255, 0, 0), (bar_x, bar_y, bar_lebar_total, bar_tinggi))
+        pygame.draw.rect(Screen, (0, 255, 0), (bar_x, bar_y, bar_lebar_sekarang, bar_tinggi))
+
+    Tabrakan_peluru_dan_pesawat = Collision(x_plasma_alien,y_plasma_alien, lebar_Plasma, panjang_Plasma,
+                                            x_spaceship,y_spaceship,lebar_Spaceship,panjang_Spaceship)
+    if Tabrakan_peluru_dan_pesawat:
+        hp -= 2
+        daftar_peluru_musuh.append(Plasma_musuh) 
+        daftar_peluru_musuh.remove(Plasma_musuh)
+        x_plasma_alien = x_alien+50
+        y_plasma_alien = y_alien+65
+
+    Tabrakan_peluru_dan_pesawat_2 = Collision(x_plasma_alien_2,y_plasma_alien_2, lebar_Plasma, panjang_Plasma,
+                                              x_spaceship,y_spaceship,lebar_Spaceship,panjang_Spaceship)    
+    if Tabrakan_peluru_dan_pesawat_2:
+        hp -= 2
+        daftar_peluru_musuh.append(Plasma_musuh) 
+        daftar_peluru_musuh.remove(Plasma_musuh)
+        x_plasma_alien_2 = x_alien + 50
+        y_plasma_alien_2 = y_alien + 65
+
+    if y_plasma_alien >= 600:
+        
+        x_plasma_alien = x_alien + 50
+        y_plasma_alien = y_alien + 65
+
+    if y_plasma_alien_2 >= 600:
+        
+        x_plasma_alien_2 = x_alien + 30
+        y_plasma_alien_2 = y_alien + 65
+
+    y_plasma_alien += 5
+    y_plasma_alien_2 += 5
+
+    gambar_hp = font.render(f"hp : {hp}" ,True ,(255,255,255))
+    gambar_score = font.render(f"Score : {score}" ,True ,(255,255,255))
+
+    Screen.blit(gambar_hp,(10,0))
+    Screen.blit(gambar_score,(10,20))
+    Screen.blit(Spaceship, (x_spaceship, y_spaceship))
+    Screen.blit(Meteorit, (x_enemy, y_enemy))
+    Screen.blit(Plasma_musuh,(x_plasma_alien,y_plasma_alien))
+    Screen.blit(Plasma_musuh,(x_plasma_alien_2,y_plasma_alien_2))
+    
+    clock.tick(60)
+    pygame.display.update()
+
+pygame.quit()
