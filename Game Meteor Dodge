@@ -1,0 +1,145 @@
+# IMPORT
+import pygame
+import random
+
+# INIT
+pygame.init()
+font_skor = pygame.font.SysFont("Arial", 28)
+font_game_over = pygame.font.SysFont("Arial", 50)
+font_game_over.set_bold(True)
+font_info = pygame.font.SysFont("Arial", 22)
+
+# GAMBAR ROCKET
+rocket = pygame.image.load("rocket.png")
+tinggi_rocket = rocket.get_height()
+lebar_rocket = rocket.get_width()
+
+# GAMBAR ASTEROID
+asteroid = pygame.image.load("asteroid.png")
+tinggi_asteroid = asteroid.get_height()
+lebar_asteroid = asteroid.get_width()
+
+# LAYAR
+width = 600
+height = 600
+window = pygame.display.set_mode([width, height])
+
+# ICON & CAPTION
+pygame.display.set_icon(rocket)
+pygame.display.set_caption("Meteor Dodge")
+
+# VARIABEL ROCKET
+x_rocket = 270
+y_rocket = 500
+
+# VARIABEL ASTEROID
+JUMLAH_METEOR = 5
+daftar_meteor = []
+
+for _ in range(JUMLAH_METEOR):
+    x_acak = random.randint(0, width - lebar_asteroid)
+    y_acak = random.randint(-500, -32)
+    kecepatan = random.randint(3, 6)
+    hitbox_meteor = pygame.Rect(x_acak, y_acak, lebar_asteroid, tinggi_asteroid)
+    daftar_meteor.append({"rect": hitbox_meteor, "speed": kecepatan})
+
+# VARIABEL SKOR & STATUS GAME
+skor = 0
+running = True
+game_over = False
+clock = pygame.time.Clock()
+
+# FUNGSI UNTUK RESTART GAME
+def reset_game():
+    global x_rocket, y_rocket, skor, game_over
+    x_rocket = 270
+    y_rocket = 500
+    skor = 0
+    game_over = False
+    
+    # Mengembalikan posisi semua meteor ke atas
+    for m in daftar_meteor:
+        m["rect"].x = random.randint(0, width - lebar_asteroid)
+        m["rect"].y = random.randint(-500, -32)
+        m["speed"] = random.randint(3, 6)
+
+# LOOP UTAMA
+while running:
+    # KELUAR LAYAR & TEKAN TOMBOL
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+            
+        # Memeriksa jika tombol 'R' ditekan saat Game Over
+        if event.type == pygame.KEYDOWN:
+            if game_over and event.key == pygame.K_r:
+                reset_game()
+
+    if not game_over:
+        # GERAKAN ROCKET
+        kunci = pygame.key.get_pressed()
+
+        if kunci[pygame.K_LEFT] or kunci[pygame.K_a]:
+            x_rocket -= 5
+        if kunci[pygame.K_RIGHT] or kunci[pygame.K_d]:
+            x_rocket += 5
+        if kunci[pygame.K_UP] or kunci[pygame.K_w]:
+            y_rocket -= 5
+        if kunci[pygame.K_DOWN] or kunci[pygame.K_s]:
+            y_rocket += 5
+
+        # BATAS LAYAR X & Y
+        if x_rocket >= width - lebar_rocket:
+            x_rocket = width - lebar_rocket
+        if x_rocket <= 0:
+            x_rocket = 0
+        if y_rocket >= height - tinggi_rocket:
+            y_rocket = height - tinggi_rocket
+        if y_rocket <= 0:
+            y_rocket = 0
+
+        # UPDATE HITBOX ROCKET
+        hitbox_rocket = pygame.Rect(x_rocket, y_rocket, lebar_rocket, tinggi_rocket)
+
+        # PERGERAKAN METEOR, HITUNG SKOR, & CEK TABRAKAN
+        for m in daftar_meteor:
+            m["rect"].y += m["speed"]
+            
+            # Jika meteor lolos sampai bawah layar
+            if m["rect"].y >= height:
+                m["rect"].x = random.randint(0, width - lebar_asteroid)
+                m["rect"].y = random.randint(-150, -32)
+                m["speed"] = random.randint(3, 6)
+                skor += 1  # Poin bertambah 1!
+
+            # DETEKSI TABRAKAN
+            if hitbox_rocket.colliderect(m["rect"]):
+                game_over = True
+
+    # DRAW / TAMPILAN
+    window.fill((0, 0, 0))
+
+    if not game_over:
+        # Tampilkan Meteor dan Roket
+        for m in daftar_meteor:
+            window.blit(asteroid, (m["rect"].x, m["rect"].y))
+        window.blit(rocket, (x_rocket, y_rocket))
+
+        # Tampilkan Papan Skor di Pojok Kiri Atas
+        teks_skor = font_skor.render(f"Skor: {skor}", True, (255, 255, 255))
+        window.blit(teks_skor, (15, 15))
+    else:
+        # Tampilkan Layar Game Over + Skor Akhir + Petunjuk Restart
+        teks_kalah = font_game_over.render("GAME OVER!", True, (255, 50, 50))
+        teks_skor_akhir = font_skor.render(f"Skor Akhir: {skor}", True, (255, 255, 255))
+        teks_restart = font_info.render("Tekan 'R' untuk main lagi", True, (200, 200, 200))
+
+        window.blit(teks_kalah, (160, 220))
+        window.blit(teks_skor_akhir, (230, 290))
+        window.blit(teks_restart, (190, 340))
+
+    # FPS & UPDATE
+    clock.tick(60)
+    pygame.display.update()
+
+pygame.quit()
