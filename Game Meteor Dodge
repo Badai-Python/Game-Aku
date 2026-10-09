@@ -1,3 +1,4 @@
+
 # IMPORT
 import pygame
 import random
@@ -28,22 +29,36 @@ background = pygame.image.load("background.jpg")
 
 # LAYAR & WINDOW
 width, height = 600, 600
-window = pygame.display.set_mode([width, height])
+window = pygame.display.set_mode((width, height))
 pygame.display.set_icon(rocket)
 pygame.display.set_caption("Meteor Dodge")
 
 # AUDIO
-sfx_game_over = pygame.mixer.Sound("game over sound.mp3") 
+sfx_game_over = pygame.mixer.Sound("game over sound.mp3")
 pygame.mixer.music.load("background sound.mp3")
+sfx_collision = pygame.mixer.Sound("collision.mp3")
+
 pygame.mixer.music.play(-1)
-sfx_collision = pygame.mixer.Sound("collision.mp3") 
 
 # VARIABEL ROCKET & HEALTH BAR
 x_rocket, y_rocket = 270, 500
+
 MAX_HP = 100
 hp = MAX_HP
+
 exploding = False
 waktu_explosion = 0
+DURASI_EXPLOSION = 500
+
+# VARIABEL INVINCIBILITY
+invincible = False
+waktu_mulai_kebal = 0
+DURASI_KEBAL = 2000
+
+# VARIABEL KEMATIAN
+mati = False
+waktu_mulai_mati = 0
+DURASI_ANIMASI_MATI = 3000
 
 # VARIABEL METEOR
 JUMLAH_METEOR = 5
@@ -53,126 +68,240 @@ for _ in range(JUMLAH_METEOR):
     x_acak = random.randint(0, width - lebar_asteroid)
     y_acak = random.randint(-500, -32)
     kecepatan = random.randint(3, 6)
-    hitbox_meteor = pygame.Rect(x_acak, y_acak, lebar_asteroid, tinggi_asteroid)
-    daftar_meteor.append({"rect": hitbox_meteor, "speed": kecepatan})
 
+    hitbox_meteor = pygame.Rect(
+        x_acak, y_acak, lebar_asteroid, tinggi_asteroid
+    )
+
+    daftar_meteor.append({
+        "rect": hitbox_meteor,
+        "speed": kecepatan
+    })
+
+# VARIABEL GAME
 skor = 0
 running = True
 game_over = False
 clock = pygame.time.Clock()
 
+
+# FUNGSI RESET GAME
 def reset_game():
     global x_rocket, y_rocket, skor, hp, game_over
+    global invincible, waktu_mulai_kebal
+    global exploding, waktu_explosion
+    global mati, waktu_mulai_mati
+
     x_rocket, y_rocket = 270, 500
     skor = 0
-    hp = MAX_HP  # Reset HP kembali penuh
+    hp = MAX_HP
     game_over = False
-    
-    pygame.mixer.music.play(-1)
-    
+
+    invincible = False
+    waktu_mulai_kebal = 0
+
+    exploding = False
+    waktu_explosion = 0
+
+    mati = False
+    waktu_mulai_mati = 0
+
     for m in daftar_meteor:
         m["rect"].x = random.randint(0, width - lebar_asteroid)
         m["rect"].y = random.randint(-500, -32)
         m["speed"] = random.randint(3, 6)
 
+    pygame.mixer.music.play(-1)
+
+
 # LOOP UTAMA
 while running:
+
+    # EVENT
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-            
+
         if event.type == pygame.KEYDOWN:
             if game_over and event.key == pygame.K_r:
                 reset_game()
-                
-    if pygame.time.get_ticks() - waktu_explosion >= 500:
-        exploding = False
-        
-    if not game_over:
+
+    # WAKTU SEKARANG
+    waktu_sekarang = pygame.time.get_ticks()
+
+    # AKHIRI INVINCIBILITY SETELAH 2 DETIK
+    if invincible:
+        if waktu_sekarang - waktu_mulai_kebal >= DURASI_KEBAL:
+            invincible = False
+
+    # AKHIRI EFEK LEDAKAN BIASA
+    if exploding:
+        if waktu_sekarang - waktu_explosion >= DURASI_EXPLOSION:
+            exploding = False
+
+    # SELESAIKAN ANIMASI KEMATIAN
+    if mati:
+        if waktu_sekarang - waktu_mulai_mati >= DURASI_ANIMASI_MATI:
+            mati = False
+            game_over = True
+            sfx_game_over.play()
+
+    # GAMEPLAY
+    if not game_over and not mati:
+
         # GERAKAN ROCKET
         kunci = pygame.key.get_pressed()
+
         if (kunci[pygame.K_LEFT] or kunci[pygame.K_a]) and x_rocket > 0:
             x_rocket -= 5
+
         if (kunci[pygame.K_RIGHT] or kunci[pygame.K_d]) and x_rocket < width - lebar_rocket:
             x_rocket += 5
+
         if (kunci[pygame.K_UP] or kunci[pygame.K_w]) and y_rocket > 0:
             y_rocket -= 5
+
         if (kunci[pygame.K_DOWN] or kunci[pygame.K_s]) and y_rocket < height - tinggi_rocket:
             y_rocket += 5
 
-        hitbox_rocket = pygame.Rect(x_rocket, y_rocket, lebar_rocket, tinggi_rocket)
+        # HITBOX ROCKET
+        hitbox_rocket = pygame.Rect(
+            x_rocket, y_rocket, lebar_rocket, tinggi_rocket
+        )
 
-        # PERGERAKAN METEOR & DETEKSI TABRAKAN
+        # PERGERAKAN METEOR & TABRAKAN
         for m in daftar_meteor:
+
             m["rect"].y += m["speed"]
-            
-            # Meteor lolos ke bawah
+
+            # METEOR LOLOS KE BAWAH
             if m["rect"].y >= height:
                 m["rect"].x = random.randint(0, width - lebar_asteroid)
                 m["rect"].y = random.randint(-150, -32)
-                m["speed"] = random.randint(3, 10)
                 skor += 1
 
-            # DETEKSI TABRAKAN ROCKET DAN METEOR
-            if hitbox_rocket.colliderect(m["rect"]):
-                hp -= 25  # Kurangi HP sebesar 25
+            # DETEKSI TABRAKAN
+            if (
+                not invincible
+                and hitbox_rocket.colliderect(m["rect"])
+            ):
+
+                hp -= 25
+
+                # AKTIFKAN INVINCIBILITY
+                invincible = True
+                waktu_mulai_kebal = pygame.time.get_ticks()
+
+                # EFEK LEDAKAN
                 exploding = True
                 waktu_explosion = pygame.time.get_ticks()
+
                 sfx_collision.play()
-                
-                # Kembalikan meteor yang menabrak ke atas layar
+
+                # PINDAHKAN METEOR YANG MENABRAK
                 m["rect"].x = random.randint(0, width - lebar_asteroid)
                 m["rect"].y = random.randint(-150, -32)
-                
-                # Cek jika HP habis
+
+                # JIKA HP HABIS
                 if hp <= 0:
                     hp = 0
+                    mati = True
+                    waktu_mulai_mati = pygame.time.get_ticks()
+
+                    # HENTIKAN MUSIK LATAR
                     pygame.mixer.music.stop()
-                    sfx_game_over.play()
-                    game_over = True
 
     # DRAWING / TAMPILAN
-    window.fill((0, 0, 0))
-    window.blit(background)
-    
-    if not game_over:
-        # Tampilkan Meteor dan Roket
-        for m in daftar_meteor:
-            window.blit(asteroid, (m["rect"].x, m["rect"].y))
+    window.blit(background, (0, 0))
+
+    # GAMBAR METEOR
+    for m in daftar_meteor:
+        window.blit(
+            asteroid,
+            (m["rect"].x, m["rect"].y)
+        )
+
+    # GAMBAR ROCKET / LEDAKAN
+    if mati:
+        # Ledakan tetap terlihat selama animasi kematian
+        window.blit(explode, (x_rocket, y_rocket))
+
+    elif not game_over:
+
         if exploding:
             window.blit(explode, (x_rocket, y_rocket))
+
+        elif invincible:
+            # ROCKET BERKEDIP SETIAP 100 MILIDETIK
+            if (waktu_sekarang // 100) % 2 == 0:
+                window.blit(rocket, (x_rocket, y_rocket))
+
         else:
-             window.blit(rocket, (x_rocket, y_rocket))
-        
-        # --- GAMBAR HEALTH BAR ---
+            window.blit(rocket, (x_rocket, y_rocket))
+
+    # HEALTH BAR DAN SKOR
+    if not game_over:
+
         bar_x, bar_y = 15, 15
         bar_lebar, bar_tinggi = 150, 20
-        
-        # 1. Dasar Bar Merah (HP Kosong)
-        pygame.draw.rect(window, (200, 0, 0), (bar_x, bar_y, bar_lebar, bar_tinggi))
-        
-        # 2. Bar Hijau (HP Tersisa)
-        rasio_hp = hp / MAX_HP
-        pygame.draw.rect(window, (0, 220, 0), (bar_x, bar_y, int(bar_lebar * rasio_hp), bar_tinggi))
-        
-        # 3. Garis Tepi Putih
-        pygame.draw.rect(window, (255, 255, 255), (bar_x, bar_y, bar_lebar, bar_tinggi), 2)
-        
-        # --- TAMPILKAN SKOR ---
-        teks_skor = font_skor.render(f"{skor}", True, (255, 255, 255))
-        window.blit(teks_skor, (270, 10))
-        
-    else:
-        window.fill((0,0,0))
-        teks_kalah = font_game_over.render("GAME OVER!", True, (255, 50, 50))
-        teks_skor_akhir = font_teks_skor.render(f"Last Score: {skor}", True, (255, 255, 255))
-        teks_restart = font_info.render("Press 'R' for Play again!", True, (200, 200, 200))
-        
-        window.blit(teks_kalah, (160, 220))
-        window.blit(teks_skor_akhir, (230, 290))
-        window.blit(teks_restart, (203, 340))
 
+        # DASAR BAR MERAH
+        pygame.draw.rect(
+            window, (200, 0, 0),
+            (bar_x, bar_y, bar_lebar, bar_tinggi)
+        )
+
+        # BAR HIJAU SESUAI HP
+        rasio_hp = hp / MAX_HP
+
+        pygame.draw.rect(
+            window, (0, 220, 0),
+            (
+                bar_x, bar_y,
+                int(bar_lebar * rasio_hp),
+                bar_tinggi
+            )
+        )
+
+        # GARIS TEPI PUTIH
+        pygame.draw.rect(
+            window, (255, 255, 255),
+            (bar_x, bar_y, bar_lebar, bar_tinggi), 2
+        )
+
+        # SKOR
+        teks_skor = font_skor.render(
+            f"{skor}", True, (255, 255, 255)
+        )
+
+        window.blit(teks_skor, (270, 10))
+
+    # LAYAR GAME OVER
+    if game_over:
+
+        window.fill((0, 0, 0))
+
+        teks_kalah = font_game_over.render(
+            "GAME OVER!", True, (255, 50, 50)
+        )
+
+        teks_skor_akhir = font_teks_skor.render(
+            f"Last Score: {skor}", True, (255, 255, 255)
+        )
+
+        teks_restart = font_info.render(
+            "Press 'R' for Play again!", True, (200, 200, 200)
+        )
+
+        window.blit(teks_kalah, (160, 220))
+        window.blit(teks_skor_akhir, (200, 290))
+        window.blit(teks_restart, (175, 340))
+
+    # FPS
     clock.tick(60)
+
+    # UPDATE TAMPILAN
     pygame.display.update()
 
+# KELUAR
 pygame.quit()
