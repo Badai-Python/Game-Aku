@@ -1,0 +1,429 @@
+import random
+import pygame
+
+# HIGH SCORE
+def baca_high_score():
+    try:
+        with open("highscore.txt", "r") as file:
+            return int(file.read())
+    except (FileNotFoundError, ValueError):
+        return 0
+
+def simpan_high_score(skor):
+    with open("highscore.txt", "w") as file:
+        file.write(str(skor))
+        
+high_score = baca_high_score()
+
+# 1. INIT
+pygame.init()
+pygame.mixer.init()
+
+LEBAR_LAYAR = 500
+TINGGI_LAYAR = 700
+
+layar = pygame.display.set_mode(
+    (LEBAR_LAYAR, TINGGI_LAYAR)
+)
+pygame.display.set_caption("Coin Catcher")
+
+pygame.display.set_icon(
+    pygame.image.load("coin.png")
+)
+
+# 2. FONT
+font_skor = pygame.font.SysFont("Arial", 30, bold=True)
+font_judul = pygame.font.SysFont("Arial", 60, bold=True)
+font_loading = pygame.font.SysFont("Arial", 22)
+font_tombol = pygame.font.SysFont("Arial", 24, bold=True)
+
+# 3. GAMBAR
+langit = pygame.image.load("langit.png").convert()
+keranjang = pygame.image.load(
+    "keranjang.png"
+).convert_alpha()
+coin = pygame.image.load("coin.png").convert_alpha()
+big_coin = pygame.image.load("big_coin.png").convert_alpha()
+bomb = pygame.image.load("dinamit.png").convert_alpha()
+heart = pygame.image.load("heart.png").convert_alpha()
+
+# 4. SUARA
+sfx_collision = pygame.mixer.Sound("clink.mp3")
+sfx_collision.set_volume(0.5)
+
+sfx_intro = pygame.mixer.Sound("intro_8-bit.mp3")
+sfx_intro.set_volume(0.5)
+
+sfx_collision_bomb = pygame.mixer.Sound("collision_bomb_cartoon.mp3")
+sfx_collision_bomb.set_volume(0.5)
+
+sfx_background = pygame.mixer.Sound("ringtone.mp3")
+sfx_background.set_volume(0.4)
+
+sfx_hp_up = pygame.mixer.Sound("hp_sound.mp3")
+sfx_hp_up.set_volume(3)
+
+# 5. FUNGSI MAIN MENU# 5. FUNGSI MAIN MENU
+def tampilkan_main_menu():
+    sudut_menu = 0
+    menu_aktif = True
+    
+    # DEFINISIKAN TOMBOL DI ATAS SEBELUM EVENT LOOP
+    rect_tombol_main = pygame.Rect(125, 380, 250, 50)
+    
+    while menu_aktif:
+        sudut_menu -= 3
+        coin_menu_berotasi = pygame.transform.rotate(big_coin, sudut_menu)
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                    menu_aktif = False
+            
+            # Sekarang aman dicek karena rect_tombol_main sudah ada di atas!
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    pos_mouse = pygame.mouse.get_pos()
+                    if rect_tombol_main.collidepoint(pos_mouse):
+                        menu_aktif = False
+
+        layar.fill((2, 13, 28))
+
+        rect_coin_menu = coin_menu_berotasi.get_rect(center=(LEBAR_LAYAR // 2, 180))
+        layar.blit(coin_menu_berotasi, rect_coin_menu)
+
+        judul = font_judul.render("COIN CATCHER", True, (255, 215, 0))
+        layar.blit(judul, judul.get_rect(center=(LEBAR_LAYAR // 2, 310)))
+
+        pos_kursor = pygame.mouse.get_pos()
+        if rect_tombol_main.collidepoint(pos_kursor):
+            warna_tombol = (70, 250, 160)
+        else:
+            warna_tombol = (50, 220, 140)
+
+        pygame.draw.rect(layar, warna_tombol, rect_tombol_main, border_radius=25)
+        
+        teks_tombol = font_tombol.render("MULAI MAIN", True, (2, 13, 28))
+        layar.blit(teks_tombol, teks_tombol.get_rect(center=rect_tombol_main.center))
+
+        waktu_sekarang = pygame.time.get_ticks()
+        if (waktu_sekarang // 400) % 2 == 0:
+            teks_petunjuk = font_loading.render("Atau Tekan [ SPACE ] di Keyboard", True, (200, 200, 200))
+            layar.blit(teks_petunjuk, teks_petunjuk.get_rect(center=(LEBAR_LAYAR // 2, 480)))
+
+        teks_high_score = font_loading.render(
+                f"Best score: {high_score}",
+                True,
+                (
+                    255, 215, 0
+            )
+        )
+        
+        layar.blit(teks_high_score, (350, 15))
+                        
+        pygame.display.flip()
+        pygame.time.delay(30)
+
+# 6. FUNGSI LOADING SCREEN
+def tampilkan_loading():
+    sudut = 0
+    sfx_intro.play()
+    
+    for persen in range(101):
+        coin_berotasi = pygame.transform.rotate(big_coin, sudut)
+        sudut -= 5
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+
+        layar.fill((2, 13, 28))
+
+        judul = font_judul.render("COIN CATCHER", True, (255, 215, 0))
+        layar.blit(judul, judul.get_rect(center=(LEBAR_LAYAR // 2, 260)))
+
+        teks = font_loading.render("Memuat Permainan...", True, (255, 255, 255))
+        layar.blit(teks, teks.get_rect(center=(LEBAR_LAYAR // 2, 320)))
+
+        pygame.draw.rect(layar, (60, 60, 60), (75, 370, 350, 25), border_radius=12)
+
+        rect_coin = coin_berotasi.get_rect(center=(LEBAR_LAYAR // 2, 120))
+        layar.blit(coin_berotasi, rect_coin)
+
+        lebar_isi = int(346 * persen / 100)
+        pygame.draw.rect(layar, (50, 220, 140), (77, 372, lebar_isi, 21), border_radius=10)
+
+        teks_persen = font_loading.render(f"Loading... {persen}%", True, (255, 255, 255))
+        layar.blit(teks_persen, teks_persen.get_rect(center=(LEBAR_LAYAR // 2, 430)))
+
+        pygame.display.flip()
+        pygame.time.delay(30)
+
+    return True
+
+
+# 7. UKURAN GAMBAR
+lebar_keranjang = keranjang.get_width()
+tinggi_keranjang = keranjang.get_height()
+
+lebar_coin = coin.get_width()
+tinggi_coin = coin.get_height()
+
+lebar_bomb = bomb.get_width()
+tinggi_bomb = bomb.get_height()
+
+lebar_maks_objek = max(lebar_coin, lebar_bomb)
+
+
+# 8. FUNGSI MEMBUAT OBJEK
+def buat_objek(y_awal):
+    return {
+        "x": random.randint(0, LEBAR_LAYAR - lebar_maks_objek),
+        "y": y_awal,
+        "penentu_random": random.randint(0, 99)
+    }
+
+
+# ==========================================
+# 9. LOOP UTAMA PROGRAM (Bisa Restart & Pause)
+# ==========================================
+game_berjalan = True
+
+while game_berjalan:
+
+    tampilkan_main_menu()
+    tampilkan_loading()
+
+    darah_tersisa = 3
+    x_keranjang = (LEBAR_LAYAR - lebar_keranjang) // 2
+    y_keranjang = TINGGI_LAYAR - tinggi_keranjang - 20
+
+    KECEPATAN_KERANJANG = 10
+    KECEPATAN_OBJEK = 4
+
+    skor = 0
+    skor_bonus_berikutnya = 50
+
+    kebal = False
+    DURASI_KEBAL = 2000
+    mulai_kebal = 0
+
+    jumlah_objek = 10
+    daftar_objek = []
+    total_bom_terkena = 0
+
+    for i in range(jumlah_objek):
+        daftar_objek.append(buat_objek(-40 - i * 100))
+
+    sfx_background.play(-1)
+    waktu = pygame.time.Clock()
+    playing = True
+
+    # A. LOOP GAMEPLAY UTAMA
+    while playing:
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sfx_background.stop()
+                pygame.quit()
+                raise SystemExit
+
+            # Tekan ESC atau P untuk PAUSE game
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE or event.key == pygame.K_p:
+                    sfx_background.stop()
+                    
+                    # --- MENU PAUSE ---
+                    paused = True
+                    while paused:
+                        layar.fill((2, 13, 28))
+                        teks_pause = font_judul.render("PAUSE", True, (255, 215, 0))
+                        layar.blit(teks_pause, teks_pause.get_rect(center=(LEBAR_LAYAR // 2, 220)))
+
+                        teks_lanjut = font_loading.render("Tekan [ R ] untuk Lanjut Main", True, (50, 220, 140))
+                        layar.blit(teks_lanjut, teks_lanjut.get_rect(center=(LEBAR_LAYAR // 2, 320)))
+
+                        teks_kembali = font_loading.render("Tekan [ M ] ke Main Menu", True, (255, 100, 100))
+                        layar.blit(teks_kembali, teks_kembali.get_rect(center=(LEBAR_LAYAR // 2, 380)))
+
+                        pygame.display.flip()
+
+                        for sub_event in pygame.event.get():
+                            if sub_event.type == pygame.QUIT:
+                                pygame.quit()
+                                raise SystemExit
+                            if sub_event.type == pygame.KEYDOWN:
+                                if sub_event.key == pygame.K_r: # Lanjutkan game
+                                    paused = False
+                                    sfx_background.play()
+                                elif sub_event.key == pygame.K_m: # Keluar ke Main Menu
+                                    paused = False
+                                    playing = False
+                                    game_berjalan = True
+
+                    if not playing:
+                        break
+
+        if not playing:
+            break
+
+        # Cek Invincibility
+        waktu_sekarang = pygame.time.get_ticks()
+        if kebal:
+            if waktu_sekarang - mulai_kebal >= DURASI_KEBAL:
+                kebal = False
+
+        # Gerakkan Keranjang
+        kunci = pygame.key.get_pressed()
+        if kunci[pygame.K_LEFT] or kunci[pygame.K_a]:
+            x_keranjang -= KECEPATAN_KERANJANG
+        if kunci[pygame.K_RIGHT] or kunci[pygame.K_d]:
+            x_keranjang += KECEPATAN_KERANJANG
+
+        x_keranjang = max(0, min(x_keranjang, LEBAR_LAYAR - lebar_keranjang))
+        rect_keranjang = pygame.Rect(x_keranjang, y_keranjang, lebar_keranjang, tinggi_keranjang)
+
+        # Atur Kesulitan Berdasarkan Skor
+        if skor >= 100:
+            jumlah_objek = 75
+            KECEPATAN_OBJEK = 7
+        elif skor >= 80:
+            jumlah_objek = 60
+            KECEPATAN_OBJEK = 6
+        elif skor >= 60:
+            jumlah_objek = 45
+            KECEPATAN_OBJEK = 5
+        elif skor >= 40:
+            jumlah_objek = 30
+            KECEPATAN_OBJEK = 4
+        elif skor >= 20:
+            jumlah_objek = 15
+            KECEPATAN_OBJEK = 3
+        else:
+            jumlah_objek = 10
+            KECEPATAN_OBJEK = 2
+
+        while len(daftar_objek) < jumlah_objek:
+            daftar_objek.append(buat_objek(random.randint(-500, -40)))
+        while len(daftar_objek) > jumlah_objek:
+            daftar_objek.pop()
+
+        # Gambar Latar
+        layar.blit(langit, (0, 0))
+
+        # Gerakkan Objek
+        for obj in daftar_objek:
+            is_bomb = obj["penentu_random"] < 20
+
+            if is_bomb:
+                gambar_objek = bomb
+                lebar_objek = lebar_bomb
+                tinggi_objek = tinggi_bomb
+            else:
+                gambar_objek = coin
+                lebar_objek = lebar_coin
+                tinggi_objek = tinggi_coin
+
+            obj["y"] += KECEPATAN_OBJEK
+
+            if obj["y"] > TINGGI_LAYAR:
+                obj["y"] = random.randint(-300, -40)
+                obj["x"] = random.randint(0, LEBAR_LAYAR - lebar_maks_objek)
+                obj["penentu_random"] = random.randint(0, 99)
+
+            rect_objek = pygame.Rect(obj["x"], obj["y"], lebar_objek, tinggi_objek)
+            layar.blit(gambar_objek, (obj["x"], obj["y"]))
+
+            # Cek Tabrakan
+            if rect_keranjang.colliderect(rect_objek):
+                if is_bomb:
+                    if not kebal:
+                        darah_tersisa -= 1
+                        skor = max(0, skor - 5)
+                        sfx_collision_bomb.play()
+                        total_bom_terkena += 1
+                        kebal = True
+                        mulai_kebal = pygame.time.get_ticks()
+
+                        if darah_tersisa <= 0:
+                            playing = False
+                else:
+                    skor += 1
+                    sfx_collision.play()
+                    if skor > high_score:
+                        high_score = skor
+                        simpan_high_score(high_score)
+                                    
+                obj["y"] = random.randint(-300, -40)
+                obj["x"] = random.randint(0, LEBAR_LAYAR - lebar_maks_objek)
+                obj["penentu_random"] = random.randint(0, 99)
+
+        # Bonus Nyawa Setiap 50 Skor
+        while skor >= skor_bonus_berikutnya:
+            sfx_hp_up.play()
+            darah_tersisa += 1
+            skor_bonus_berikutnya += 50
+
+        # Tampilkan Nyawa & Skor
+        for i in range(darah_tersisa):
+            layar.blit(heart, (10 + i * 35, 10))
+
+        gambar_skor = font_skor.render(f"{skor}", True, (255, 255, 255))
+        layar.blit(gambar_skor, (235, 10))
+
+
+        # Keranjang Berkedip Saat Kebal
+        waktu_sekarang = pygame.time.get_ticks()
+        if kebal and (waktu_sekarang // 100) % 2 == 0:
+            pass
+        else:
+            layar.blit(keranjang, (x_keranjang, y_keranjang))
+
+        pygame.display.flip()
+        waktu.tick(60)
+
+    # ==========================================
+    # 10. LAYAR GAME OVER INTERAKTIF
+    # ==========================================
+    sfx_background.stop()
+    
+    if darah_tersisa <= 0:
+        menunggu_pilihan = True
+        while menunggu_pilihan:
+            layar.fill((2, 13, 28))
+            font_go = pygame.font.SysFont("Arial", 45, bold=True)
+            font_stat = pygame.font.SysFont("Arial", 22)
+
+            teks_go = font_go.render("GAME OVER", True, (255, 60, 60))
+            layar.blit(teks_go, teks_go.get_rect(center=(LEBAR_LAYAR // 2, 180)))
+
+            teks_skor_akhir = font_stat.render(f"Skor Akhir Kamu: {skor}", True, (255, 255, 255))
+            layar.blit(teks_skor_akhir, teks_skor_akhir.get_rect(center=(LEBAR_LAYAR // 2, 260)))
+
+            teks_statistik = font_stat.render(f"Total Terkena Bom (Kesalahan): {total_bom_terkena}", True, (255, 200, 0))
+            layar.blit(teks_statistik, teks_statistik.get_rect(center=(LEBAR_LAYAR // 2, 310)))
+
+            teks_ulang = font_loading.render("Tekan [ R ] untuk Main Lagi", True, (50, 220, 140))
+            layar.blit(teks_ulang, teks_ulang.get_rect(center=(LEBAR_LAYAR // 2, 400)))
+
+            teks_menu = font_loading.render("Tekan [ M ] untuk Kembali ke Menu", True, (100, 200, 255))
+            layar.blit(teks_menu, teks_menu.get_rect(center=(LEBAR_LAYAR // 2, 450)))
+
+            pygame.display.flip()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    raise SystemExit
+                
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_r:
+                        menunggu_pilihan = False
+                    elif event.key == pygame.K_m:
+                        menunggu_pilihan = False
+                        game_berjalan = True
